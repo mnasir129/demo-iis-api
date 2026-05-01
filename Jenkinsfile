@@ -63,7 +63,7 @@ pipeline {
                             stash name: "DemoAPI", includes: "${demoAPIZip}", allowEmpty: false
 							sh """
 							echo "Fixing workspace ownership before Jenkins cleanup"
-								chown -R 988:986 "$WORKSPACE"
+								chown -R 972:969 "$WORKSPACE"
 								"""
                         }
                     }
