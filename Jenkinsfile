@@ -31,7 +31,7 @@ pipeline {
                     reuseNode true
                     alwaysPull true
                     label 'linux-docker'
-                    args '-u 0:0'
+                    args '-u 988:986 -e HOME=/tmp -e DOTNET_CLI_HOME=/tmp -e NUGET_PACKAGES=/tmp/.nuget/packages'
                 }
             }
 
@@ -61,10 +61,7 @@ pipeline {
                             """)
 
                             stash name: "DemoAPI", includes: "${demoAPIZip}", allowEmpty: false
-							sh """
-							echo "Fixing workspace ownership before Jenkins cleanup"
-								chown -R 972:969 "$WORKSPACE"
-								"""
+					
                         }
                     }
                 }
