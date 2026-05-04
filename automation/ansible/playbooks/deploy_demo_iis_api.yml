@@ -39,23 +39,31 @@
     - name: Stop IIS app pool if it exists
       ansible.windows.win_shell: |
         Import-Module WebAdministration
-        if (Test-Path "IIS:\AppPools\{{ app_pool_name }}") {
-          Stop-WebAppPool -Name "{{ app_pool_name }}" -ErrorAction SilentlyContinue
+
+        $appPoolName = "{{ app_pool_name }}"
+
+        if (Test-Path "IIS:\AppPools\$appPoolName") {
+          Stop-WebAppPool -Name $appPoolName -ErrorAction SilentlyContinue
         }
       args:
         executable: powershell.exe
 
     - name: Remove old deployed files
       ansible.windows.win_shell: |
-        if (Test-Path "{{ deploy_root }}") {
-          Get-ChildItem -Path "{{ deploy_root }}" -Force | Remove-Item -Recurse -Force
+        $deployRoot = "{{ deploy_root }}"
+
+        if (Test-Path $deployRoot) {
+          Get-ChildItem -Path $deployRoot -Force | Remove-Item -Recurse -Force
         }
       args:
         executable: powershell.exe
 
     - name: Extract new application package
       ansible.windows.win_shell: |
-        tar -xzf "{{ artifact_windows_path }}" -C "{{ deploy_root }}"
+        $artifactPath = "{{ artifact_windows_path }}"
+        $deployRoot = "{{ deploy_root }}"
+
+        tar -xzf $artifactPath -C $deployRoot
       args:
         executable: powershell.exe
 
@@ -63,39 +71,49 @@
       ansible.windows.win_shell: |
         Import-Module WebAdministration
 
-        if (-not (Test-Path "IIS:\AppPools\{{ app_pool_name }}")) {
-          New-WebAppPool -Name "{{ app_pool_name }}"
+        $appPoolName = "{{ app_pool_name }}"
+
+        if (-not (Test-Path "IIS:\AppPools\$appPoolName")) {
+          New-WebAppPool -Name $appPoolName
         }
 
-        Set-ItemProperty "IIS:\AppPools\{{ app_pool_name }}" -Name managedRuntimeVersion -Value ""
-        Set-ItemProperty "IIS:\AppPools\{{ app_pool_name }}" -Name processModel.identityType -Value "ApplicationPoolIdentity"
+        Set-ItemProperty "IIS:\AppPools\$appPoolName" -Name managedRuntimeVersion -Value ""
+        Set-ItemProperty "IIS:\AppPools\$appPoolName" -Name processModel.identityType -Value "ApplicationPoolIdentity"
       args:
         executable: powershell.exe
 
-    - name: Create or update IIS application
+    - name: Create or recreate IIS application
       ansible.windows.win_shell: |
         Import-Module WebAdministration
 
-        $appPath = "IIS:\Sites\{{ site_name }}{{ app_virtual_path }}"
+        $siteName = "{{ site_name }}"
+        $appName = "{{ app_name }}"
+        $physicalPath = "{{ deploy_root }}"
+        $appPoolName = "{{ app_pool_name }}"
 
-        if (Test-Path $appPath) {
-          Set-ItemProperty $appPath -Name physicalPath -Value "{{ deploy_root }}"
-          Set-ItemProperty $appPath -Name applicationPool -Value "{{ app_pool_name }}"
+        $existingApp = Get-WebApplication -Site $siteName | Where-Object {
+          $_.path -eq "/$appName"
         }
-        else {
-          New-WebApplication `
-            -Site "{{ site_name }}" `
-            -Name "{{ app_name }}" `
-            -PhysicalPath "{{ deploy_root }}" `
-            -ApplicationPool "{{ app_pool_name }}"
+
+        if ($existingApp) {
+          Remove-WebApplication -Site $siteName -Name $appName
         }
+
+        New-WebApplication `
+          -Site $siteName `
+          -Name $appName `
+          -PhysicalPath $physicalPath `
+          -ApplicationPool $appPoolName
       args:
         executable: powershell.exe
 
     - name: Start IIS app pool
       ansible.windows.win_shell: |
         Import-Module WebAdministration
-        Start-WebAppPool -Name "{{ app_pool_name }}"
+
+        $appPoolName = "{{ app_pool_name }}"
+
+        Start-WebAppPool -Name $appPoolName
       args:
         executable: powershell.exe
 
@@ -106,6 +124,9 @@
         status_code: 200
         return_content: true
       register: health_result
+      retries: 5
+      delay: 3
+      until: health_result.status_code == 200
 
     - name: Show health endpoint response
       ansible.builtin.debug:
