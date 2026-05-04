@@ -27,7 +27,7 @@ pipeline {
                 docker {
                     image '192.168.0.121:8081/docker-hosted/local-dotnet9:latest'
                     registryUrl 'http://192.168.0.121:8081'
-                    registryCredentialsId 'nexus-local'
+                    registryCredentialsId 'nexus-creds'
                     reuseNode true
                     alwaysPull true
                     label 'linux-docker'
