@@ -25,8 +25,8 @@ pipeline {
 
             agent {
                 docker {
-                    image '178.28.51.108:8081/docker-hosted/local-dotnet9:latest'
-                    registryUrl 'http://178.28.51.108:8081'
+                    image '172.28.51.108:8081/docker-hosted/local-dotnet9:latest'
+                    registryUrl 'http://172.28.51.108:8081'
                     registryCredentialsId 'nexus-creds'
                     reuseNode true
                     alwaysPull true
