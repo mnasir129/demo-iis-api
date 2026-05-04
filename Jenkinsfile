@@ -31,7 +31,7 @@ pipeline {
                     reuseNode true
                     alwaysPull true
                     label 'linux-docker'
-                    args '-u 988:986 -e HOME=/tmp -e DOTNET_CLI_HOME=/tmp -e NUGET_PACKAGES=/tmp/.nuget/packages'
+                    args '-u 972:969 -e HOME=/tmp -e DOTNET_CLI_HOME=/tmp -e NUGET_PACKAGES=/tmp/.nuget/packages'
                 }
             }
 
