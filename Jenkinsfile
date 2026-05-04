@@ -14,7 +14,7 @@ pipeline {
     }
 
     parameters {
-        booleanParam(name: 'DEMO_API', defaultValue: true, description: 'Build Demo IIS API')
+        booleanParam(name: 'DEMO_API', defaultValue: true, description: 'Build and deploy Demo IIS API')
     }
 
     stages {
@@ -25,12 +25,18 @@ pipeline {
 
             agent {
                 docker {
-                    image '172.28.51.108:8081/docker-hosted/local-dotnet9:latest'
-                    registryUrl 'http://172.28.51.108:8081'
-                    registryCredentialsId 'nexus-creds'
+                    image '192.168.0.121:8081/docker-hosted/local-dotnet9:latest'
+                    registryUrl 'http://192.168.0.121:8081'
+                    registryCredentialsId 'nexus-local'
                     reuseNode true
                     alwaysPull true
                     label 'linux-docker'
+
+                    /*
+                     * Use Jenkins UID/GID here, not root.
+                     * Replace 989:989 with your actual values from:
+                     * id jenkins
+                     */
                     args '-u 972:969 -e HOME=/tmp -e DOTNET_CLI_HOME=/tmp -e NUGET_PACKAGES=/tmp/.nuget/packages'
                 }
             }
@@ -61,7 +67,6 @@ pipeline {
                             """)
 
                             stash name: "DemoAPI", includes: "${demoAPIZip}", allowEmpty: false
-					
                         }
                     }
                 }
@@ -74,16 +79,75 @@ pipeline {
                 }
             }
         }
+
+        stage('Deploy to Local IIS') {
+            when {
+                expression { return params.DEMO_API }
+            }
+
+            agent { label 'linux-docker' }
+
+            steps {
+                checkout scm
+
+                sh '''
+                    echo "Workspace before unstash:"
+                    pwd
+                    ls -la
+                '''
+
+                dir('artifacts') {
+                    unstash 'DemoAPI'
+                }
+
+                sh '''
+                    echo "Artifacts:"
+                    ls -lh artifacts/
+                    echo "Ansible files:"
+                    find automation/ansible -type f
+                '''
+
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'windows-creds',
+                        usernameVariable: 'ANSIBLE_REMOTE_USER',
+                        passwordVariable: 'ANSIBLE_REMOTE_PASSWORD'
+                    )
+                ]) {
+                    sh """
+                        set -e
+
+                        echo "Running Ansible deployment to IIS..."
+
+                        ansible-playbook \\
+                          -i automation/ansible/inventories/local/hosts.yml \\
+                          automation/ansible/playbooks/deploy_demo_iis_api.yml \\
+                          --extra-vars "demo_api_code_tarball=$WORKSPACE/artifacts/${demoAPIZip}"
+                    """
+                }
+            }
+
+            post {
+                always {
+                    echo "Cleaning deploy workspace"
+                    deleteDir()
+                }
+            }
+        }
     }
 
     post {
         always {
-            echo "Build-only pipeline finished"
+            echo "Full CI/CD pipeline finished"
             deleteDir()
         }
 
         failure {
-            echo "Build-only pipeline failed. Check Docker pull, shared library loading, or dotnet publish logs."
+            echo "Pipeline failed. Check Docker build, stash/unstash, Ansible WinRM, or IIS deployment logs."
+        }
+
+        success {
+            echo "Pipeline completed successfully. DemoIisApi should be deployed to IIS."
         }
     }
 }
