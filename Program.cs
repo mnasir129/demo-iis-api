@@ -8,7 +8,7 @@ app.MapGet("/health", () => Results.Ok(new
 {
     status = "Healthy",
     application = "DemoIisApi",
-    deployedBy = "Jenkins + Docker + Ansible +meto",
+    deployedBy = "Jenkins + Docker + Ansible +metooo",
     timestamp = DateTime.UtcNow
 }));
 
